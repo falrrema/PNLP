@@ -29,7 +29,7 @@ removeColumns_NA <- function(data, upperBound = 0) {
     return(data)
 }
 
-#Barplot of % missingness for each column of the data set
+# Barplot of % missingness for each column of the data set
 visualize_NA <- function(data, percent.show = 0) {
     missing.data <- table_NA(data)
     missing.data$percent <- missing.data$number.na/nrow(data)*100
@@ -292,3 +292,10 @@ timeseriesPlot <- function(data, timeColumn, time = "month", fillOption = NA) {
     print(p)
     return(p)
 }
+
+
+# Evaluación métricas ----------------------------------------------------------
+LogLossBinary <- function(actual, predicted, eps = 1e-15) { # función que ocupa Kaggle para evaluar
+    predicted = pmin(pmax(predicted, eps), 1-eps) - (sum(actual * log(predicted) + (1 - actual) * log(1 - predicted))) / length(actual)
+}
+
