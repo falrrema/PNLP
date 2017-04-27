@@ -7,6 +7,7 @@ library(dplyr)
 library(data.table)
 library(plotly)
 library(tidyr)
+library(tidytext)
 source("helper_pnlp.R")
 Sys.setlocale(locale="es_ES.UTF-8") # Para visualizar caracteres especiales
 
@@ -101,7 +102,7 @@ wilcox.test(diffLc ~ is_duplicate, data = df, )
 df %>% group_by(is_duplicate) %>% 
     summarise(meanWCdiff = mean(diffLc), sdWCdiff = sd(diffLc), medianWCdiff = median(diffLc))
 
-df %>% mutate(diffLcSegment = cut(diffLc, breaks = c(0,51,100,300,1000,5000), right = F)) %>%
+df %>% mutate(diffLcSegment = cut(diffLc, breaks = c(0,10,20, 30, 51,100,300,1000,5000), right = F)) %>%
     group_by(diffLcSegment) %>% summarise(prob_duplicate = sum(is_duplicate)/n()) %>% 
     plot_ly(x = ~diffLcSegment, y = ~prob_duplicate, type = "bar") # la caída es más abrupta en esta variable
 
@@ -113,9 +114,34 @@ df$dlcClean <- abs(df$wcCharQ1 - df$wcCharQ2)
 boxplot(dlcClean ~ is_duplicate, data = df)
 wilcox.test(dlcClean ~ is_duplicate, data = df)
 
-df %>% mutate(dlcCleanSegment = cut(dlcClean, breaks = c(0,51,100,300,1000,5000), right = F)) %>% 
+df %>% mutate(dlcCleanSegment = cut(dlcClean, breaks = c(0,10,20,30,51,100,300,1000,5000), right = F)) %>% 
     group_by(dlcCleanSegment) %>% summarise(count = sum(is_duplicate), prob_duplicate = sum(is_duplicate)/n()) %>% 
     plot_ly(x = ~dlcCleanSegment, y = ~prob_duplicate, type = "bar") 
 
 # es mejor quitarle las stopwords, el grupo con sobre 51 caracteres tiene lad mitad de probabilidad 
 # que en el caso sin stopwords
+
+# 4. Word Similarity? -----------------------------------------------------
+df$q1q2 <- paste(df$question1, df$question2, sep = "<eos>")
+test <- sample_n(df, 5000)
+sizePlot(test$is_duplicate)
+
+list_pairs <- lapply(test$q1q2, function(t) {
+    split_pairs <- unlist(strsplit(t, split = "<eos>"))
+    return(as.list(split_pairs))
+})
+
+test$wordSimilarity <- sapply(list_pairs, function(t) {
+    word_list <- lapply(t, function(k) strsplit(trimws(k), split = "\\W") %>% unlist)
+    intersect_length <- Reduce(intersect, word_list) %>% length
+    pair_similarity <- intersect_length*2/(lapply(word_list, length) %>% unlist %>% sum)
+    return(pair_similarity)
+})
+
+boxplot(wordSimilarity ~ is_duplicate, data = test)
+wilcox.test(wordSimilarity ~ is_duplicate, data = test)
+test %>% group_by(is_duplicate) %>% 
+    summarise(meanWS = mean(wordSimilarity), sdWS = sd(wordSimilarity), medianWS = median(wordSimilarity))
+test %>% mutate(wsSegment = cut(wordSimilarity, breaks = c(0,0.4,1), right = F)) %>% 
+    group_by(wsSegment) %>% summarise(count = sum(is_duplicate), prob_duplicate = sum(is_duplicate)/n()) %>% 
+    plot_ly(x = ~wsSegment, y = ~prob_duplicate, type = "bar") 

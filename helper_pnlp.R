@@ -11,6 +11,7 @@ library(RColorBrewer)
 library(tm)
 library(ngram)
 library(dplyr)
+library(ROCR)
 
 Sys.setlocale(locale="es_ES.UTF-8") # Para visualizar caracteres especiales
 
@@ -299,3 +300,4 @@ LogLossBinary <- function(actual, predicted, eps = 1e-15) { # función que ocupa
     predicted = pmin(pmax(predicted, eps), 1-eps) - (sum(actual * log(predicted) + (1 - actual) * log(1 - predicted))) / length(actual)
 }
 
+?performance
