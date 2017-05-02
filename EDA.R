@@ -8,11 +8,13 @@ library(data.table)
 library(plotly)
 library(tidyr)
 library(tidytext)
+library(parallel)
 source("helper_pnlp.R")
 Sys.setlocale(locale="es_ES.UTF-8") # Para visualizar caracteres especiales
 
 # Leyendo datos y limpiando
 df <- singleRead("data/train.csv")
+row_original <- nrow(df)
 head(df, 10)
 glimpse(df) # mirada rapida similar a str()
 df$filename <- NULL
@@ -20,6 +22,11 @@ df$filename <- NULL
 df <- df %>% mutate(q1Clean = cleanText(question1, removeExtraWords = tm::stopwords("en"), preservePunct = "all", removeNum = F),
     q2Clean = cleanText(question2, removeExtraWords = tm::stopwords("en"), preservePunct = "all", removeNum = F),
     is_duplicate = as.logical(as.numeric(df$is_duplicate))) # Limpie las columnas de textos y converti a FALSE o TRUE la respuesta
+
+df <- df %>% filter(!id %in% c(289199, 144343, 400153)) %>% mutate(char1 = nchar(question1), char2 = nchar(question2)) %>% 
+    filter(char1 > 5, char2 > 5) # Eliminando outliers y duplicados
+
+cat("Se eliminaron", row_original - nrow(df), "datos")
 
 # EDA
 summary(df) # No se observa datos vacíos
@@ -88,8 +95,11 @@ df %>% mutate(dlpCleanSegment = cut(dlpClean, breaks = c(0,1,2,3,4,5,6,7,8,9,10,
 # LC (Largo de caracteres)
 df$wordCountCharQ1 <- nchar(df$question1) # conteo de caracteres
 df$wordCountCharQ2 <- nchar(df$question2)
-df$diffLc <- abs(df$wordCountCharQ1-df$wordCountCharQ2)
+df$diffLc <- abs(df$wordCountCharQ1 - df$wordCountCharQ2)
 
+df %>% slice(which(wordCountCharQ1 < 5 | wordCountCharQ2 < 5)) %>% View # Hay muchas preguntas vacias o sin sentido
+summary(df$wordCountCharQ1)
+summary(df$wordCountCharQ2)
 summary(df$diffLc)
 hist(df$diffLc, breaks = 50)
 
@@ -122,26 +132,35 @@ df %>% mutate(dlcCleanSegment = cut(dlcClean, breaks = c(0,10,20,30,51,100,300,1
 # que en el caso sin stopwords
 
 # 4. Word Similarity? -----------------------------------------------------
-df$q1q2 <- paste(df$question1, df$question2, sep = "<eos>")
-test <- sample_n(df, 5000)
-sizePlot(test$is_duplicate)
+df$word_share <- wordShareIndex(df, question1, question2) 
 
-list_pairs <- lapply(test$q1q2, function(t) {
-    split_pairs <- unlist(strsplit(t, split = "<eos>"))
-    return(as.list(split_pairs))
-})
+plot_ly(df, y = ~word_share, color = ~is_duplicate, type = "box") # boxplot para ver outliers
+wilcox.test(word_share ~ is_duplicate, data = df) # es ultra significativo
 
-test$wordSimilarity <- sapply(list_pairs, function(t) {
-    word_list <- lapply(t, function(k) strsplit(trimws(k), split = "\\W") %>% unlist)
-    intersect_length <- Reduce(intersect, word_list) %>% length
-    pair_similarity <- intersect_length*2/(lapply(word_list, length) %>% unlist %>% sum)
-    return(pair_similarity)
-})
+df %>% group_by(is_duplicate) %>%  # estadisticas básicas
+    summarise(meanWS = mean(word_share), sdWS = sd(word_share), medianWS = median(word_share))
 
-boxplot(wordSimilarity ~ is_duplicate, data = test)
-wilcox.test(wordSimilarity ~ is_duplicate, data = test)
-test %>% group_by(is_duplicate) %>% 
-    summarise(meanWS = mean(wordSimilarity), sdWS = sd(wordSimilarity), medianWS = median(wordSimilarity))
-test %>% mutate(wsSegment = cut(wordSimilarity, breaks = c(0,0.4,1), right = F)) %>% 
+# viendo la probabilidad de duplicados por semento de word_share
+df %>% mutate(wsSegment = cut(word_share, breaks = c(0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1), right = F)) %>% 
     group_by(wsSegment) %>% summarise(count = sum(is_duplicate), prob_duplicate = sum(is_duplicate)/n()) %>% 
-    plot_ly(x = ~wsSegment, y = ~prob_duplicate, type = "bar") 
+    plot_ly(x = ~wsSegment, y = ~prob_duplicate, type = "bar") %>% layout(xaxis = list(title = ""))
+
+# sin stopwords
+df$word_share_stop <- wordShareIndex(df, q1Clean, q2Clean)
+
+plot_ly(df, y = ~word_share_stop, color = ~is_duplicate, type = "box") # boxplot para ver outliers
+wilcox.test(word_share_stop ~ is_duplicate, data = df) # es ultra significativo
+
+df %>% group_by(is_duplicate) %>%  # estadisticas básicas
+    summarise(meanWS = mean(word_share_stop), sdWS = sd(word_share_stop), medianWS = median(word_share_stop))
+
+# viendo la probabilidad de duplicados por semento de word_share_stop
+df %>% mutate(wsSegment = cut(word_share_stop, breaks = c(0,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1), right = F)) %>% 
+    group_by(wsSegment) %>% summarise(count = sum(is_duplicate), prob_duplicate = sum(is_duplicate)/n()) %>% 
+    plot_ly(x = ~wsSegment, y = ~prob_duplicate, type = "bar") %>% layout(xaxis = list(title = ""))
+
+
+# 6. Topic Modelling ------------------------------------------------------
+
+
+

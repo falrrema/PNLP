@@ -12,6 +12,7 @@ library(tm)
 library(ngram)
 library(dplyr)
 library(ROCR)
+library(parallel)
 
 Sys.setlocale(locale="es_ES.UTF-8") # Para visualizar caracteres especiales
 
@@ -208,13 +209,40 @@ getWordFrequency <- function(whateverText, nGram = 1) {
 
 
 
-# Menciones Texto ---------------------------------------------------------
+# Text Mining ---------------------------------------------------------
 
 numeroMenciones <- function(keywords, textos) {
     table <- data.frame(key = keywords, menciones = 0)
     table$menciones <- sapply(keywords, function(t) sum(grepl(t, textos, fixed = T)))
     table <- table[order(-table$menciones),]
     return(table)
+}
+
+wordShareIndex <- function(data, string1, string2) {
+    .string1 <- col_name(substitute(string1))
+    .string2 <- col_name(substitute(string2))
+    
+    string_pair <- paste(data[[.string1]], data[[.string2]], sep = "<eos>")
+    
+    # Parallel computation
+    n_cores <- detectCores() - 1 # Calculate the number of cores
+    cat("Paralelizando.... ocupando", n_cores, "núcleos")
+    core_clusters <- makeCluster(n_cores) # Initiate cluster
+    
+    list_pairs <- parLapply(core_clusters, string_pair, function(t) {
+        split_pairs <- unlist(strsplit(t, split = "<eos>"))
+        return(as.list(split_pairs))
+    })
+    
+    wordShare <- parSapply(core_clusters, list_pairs, function(t) {
+        word_list <- lapply(t, function(k) unlist(strsplit(trimws(k), split = "\\W")))
+        intersect_length <- length(Reduce(intersect, word_list))
+        pair_similarity <- intersect_length*2/sum(unlist(lapply(word_list, length)))
+        return(pair_similarity)
+    })
+    
+    stopCluster(core_clusters) # End cluster usage
+    return(round(wordShare, 4))
 }
 
 # Visualizaciones ---------------------------------------------------------
@@ -300,4 +328,18 @@ LogLossBinary <- function(actual, predicted, eps = 1e-15) { # función que ocupa
     predicted = pmin(pmax(predicted, eps), 1-eps) - (sum(actual * log(predicted) + (1 - actual) * log(1 - predicted))) / length(actual)
 }
 
-?performance
+
+# utils -------------------------------------------------------------------
+# Para la entrega de columnas como objeto y no string
+col_name <- function (x, default = stop("Please supply column name", call. = FALSE)) {
+    if (is.character(x))
+        return(x)
+    if (identical(x, quote(expr = )))
+        return(default)
+    if (is.name(x))
+        return(as.character(x))
+    if (is.null(x))
+        return(x)
+    stop("Invalid column specification", call. = FALSE)
+}
+
