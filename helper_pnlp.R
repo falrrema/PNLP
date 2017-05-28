@@ -2,17 +2,27 @@
 # Helper PNLP script
 ######################
 
-library(plotly)
-require(tm)
-library(data.table)
-library(readxl) 
-library(wordcloud)
-library(RColorBrewer)
-library(tm)
-library(ngram)
-library(dplyr)
-library(ROCR)
-library(parallel)
+if (!require("plotly")) install.packages("plotly"); library(plotly)
+if (!require("data.table")) install.packages("data.table"); library(data.table)
+if (!require("readxl")) install.packages("readxl"); library(readxl)
+if (!require("wordcloud")) install.packages("wordcloud"); library(wordcloud)
+if (!require("RColorBrewer")) install.packages("RColorBrewer"); library(RColorBrewer)
+if (!require("tm")) install.packages("tm"); library(tm)
+if (!require("ngram")) install.packages("ngram"); library(ngram)
+if (!require("dplyr")) install.packages("dplyr"); library(dplyr)
+if (!require("ROCR")) install.packages("ROCR"); library(ROCR)
+if (!require("parallel")) install.packages("parallel"); library(parallel)
+if (!require("pacman")) install.packages("pacman"); library(pacman)
+if (!require("gofastr")) install.packages("gofastr"); library(gofastr)
+if (!require("ldatuning")) install.packages("ldatuning"); library(ldatuning)
+if (!require("scales")) install.packages("scales"); library(scales)
+if (!require("fuzzywuzzyR")) install.packages("fuzzywuzzyR"); library(fuzzywuzzyR)
+if (!require("tidytext")) install.packages("tidytext"); library(tidytext)
+if (!require("gclus")) install.packages("gclus"); library(gclus)
+if (!require("mlr")) install.packages("mlr"); library(mlr)
+# if (!require("FSelector")) install.packages("FSelector")
+
+pacman::p_load(ggplot2, topicmodels, Rmpfr)
 
 Sys.setlocale(locale="es_ES.UTF-8") # Para visualizar caracteres especiales
 
@@ -133,7 +143,68 @@ cleanText <- function(whateverText, columnNames = F, removeNum = T, encode = T, 
     return(whateverText)
 }
 
-
+PNLPcleanText <- function(text, remove_stop_words = TRUE){
+    # Clean the text, with the option to remove stop_words
+    text = tolower(text)
+    # Clean the text
+    # text = gsub("[^A-Za-z0-9]", " ", text)
+    text = gsub("what's", "", text)
+    text = gsub("\'s", " ", text)
+    text = gsub("\'ve", " have ", text)
+    text = gsub("can't", "cannot ", text)
+    text = gsub("n't", " not ", text)
+    text = gsub("I'm", "I am", text)
+    text = gsub(" m ", " am ", text)
+    text = gsub("\'re", " are ", text)
+    text = gsub("\'d", " would ", text)
+    text = gsub("\'ll", " will ", text)
+    text = gsub("60k", " 60000 ", text)
+    text = gsub(" e g ", " eg ", text)
+    text = gsub(" b g ", " bg ", text)
+    #text = gsub("\0s", "0", text)
+    text = gsub(" 9 11 ", "911", text)
+    text = gsub("e-mail", "email", text)
+    text = gsub("\\s{2,}", " ", text)
+    text = gsub("quikly", "quickly", text)
+    text = gsub(" usa ", " America ", text)
+    text = gsub(" u s ", " America ", text)
+    text = gsub(" uk ", " England ", text)
+    text = gsub("imrovement", "improvement", text)
+    text = gsub("intially", "initially", text)
+    text = gsub(" dms ", "direct messages ", text)  
+    text = gsub("demonitization", "demonetization", text) 
+    text = gsub("actived", "active", text)
+    text = gsub("kms", " kilometers ", text)
+    text = gsub("KMs", " kilometers ", text)
+    text = gsub(" cs ", " computer science ", text) 
+    text = gsub(" upvotes ", " up votes ", text)
+    text = gsub(" iPhone ", " phone ", text)
+    #text = gsub("\0rs ", " rs ", text)
+    text = gsub("calender", "calendar", text)
+    text = gsub("ios", "operating system", text)
+    text = gsub("programing", "programming", text)
+    text = gsub("bestfriend", "best friend", text)
+    text = gsub("dna", "DNA", text)
+    text = gsub("III", "3", text) 
+    text = gsub("the us", "America", text)
+    text = gsub(" J K ", " JK ", text)
+    
+    # Remove punctuation from text
+    # text = removePunctuation(text)
+    
+    stop_words = c('the','a','an','and','but','if','or','because','as','what',
+        'which','this','that','these','those','then','just','so','than','such','both',
+        'through','about','for','is','of','while','during','to','What','Which','Is','If',
+        'While','This')
+    stop_words = c(stop_words, tolower(tm::stopwords("en")))
+    # Optionally, remove stop words
+    if (remove_stop_words) text <- removeWords(text, stop_words)
+    
+    # Cleaning white spaces
+    text %<>% stripWhitespace() %>% trimws()
+    
+    return(text)
+}
 
 
 # Multifile reading -------------------------------------------------------
@@ -326,6 +397,7 @@ timeseriesPlot <- function(data, timeColumn, time = "month", fillOption = NA) {
 # Evaluación métricas ----------------------------------------------------------
 LogLossBinary <- function(actual, predicted, eps = 1e-15) { # función que ocupa Kaggle para evaluar
     predicted = pmin(pmax(predicted, eps), 1-eps) - (sum(actual * log(predicted) + (1 - actual) * log(1 - predicted))) / length(actual)
+    return(predicted)
 }
 
 
@@ -343,3 +415,240 @@ col_name <- function (x, default = stop("Please supply column name", call. = FAL
     stop("Invalid column specification", call. = FALSE)
 }
 
+# Para crear un DTM
+makeDTM <- function(data, textColumn = NULL, id = NULL, wordLength = Inf) {
+    if (is.null(textColumn)) {
+        stop("Please indicate the text column as a character string")
+    }
+    if (!is.null(id)) {
+        cat("Passing indicated IDs to corpus")
+        corpus <- VCorpus(DataframeSource(data), 
+            readerControl = list(reader = readTabular(mapping = list(content = textColumn, 
+                id = id))))
+        docTermMatrix <- DocumentTermMatrix(corpus, control=list(wordLengths=c(1,wordLength)))
+        return(list(dtm = docTermMatrix, corpus = corpus))
+    } else{
+        cat("Creating corpus without tailored IDs")
+        corpus <- VCorpus(VectorSource(data[[textColumn]]))
+        docTermMatrix <- DocumentTermMatrix(corpus)
+        return(list(dtm = docTermMatrix, corpus = corpus))
+    }
+}
+
+# Topic Modelling ---------------------------------------------------------
+# Find Optimal Number of Topics
+# Iteratively produces models and then compares the harmonic mean of the log 
+# likelihoods in a graphical output.
+
+optimal_k <- function(x, max.k = 30, harmonic.mean = TRUE, 
+    control = if (harmonic.mean) list(burnin = 500, iter = 1000, keep = 100) else  NULL,
+    method = if (harmonic.mean) "Gibbs" else "VEM", verbose = TRUE, drop.seed = TRUE, ...){
+    
+    if (isTRUE(drop.seed)){
+        control[["seed"]] <- NULL
+    }
+    
+    if (isTRUE(harmonic.mean)) {
+        optimal_k1(x, max.k = max.k, control = control, method = method, verbose = verbose, ...)
+    } else {
+        optimal_k2(x, max.k = max.k, control = control, method = method, ...)
+    }
+}
+
+plot.optimal_k1 <- function(x, ...){
+    
+    y <- attributes(x)[["k_dataframe"]]
+    y <- y[y[["k"]] == as.numeric(x), ]
+    
+    ggplot2::ggplot(attributes(x)[["k_dataframe"]], ggplot2::aes_string(x="k", y="harmonic_mean")) + 
+        ggplot2::xlab(sprintf("Number of Topics (Optimal Number: %s)", as.numeric(x))) + 
+        ggplot2::ylab("Harmonic Mean of Log Likelihood") + 
+        ggplot2::geom_smooth(method = "loess", fill=NA) + 
+        geom_point(data=y, color="red", fill=NA, size = 6, shape = 21) +
+        ggplot2::geom_line(size=1) + 
+        ggplot2::theme_bw()  + 
+        ggplot2::theme(
+            axis.title.x = ggplot2::element_text(vjust = -0.25, size = 14),
+            axis.title.y = ggplot2::element_text(size = 14, angle=90)
+        ) 
+}
+
+print.optimal_k <- function(x, ...){
+    
+    print(graphics::plot(x))
+    
+}
+
+optimal_k1 <- function(x, max.k = 30, 
+    control = list(burnin = 500, iter = 1000, keep = 100), method = "Gibbs", 
+    verbose = TRUE, ...){
+    
+    
+    if (max.k > 20) {
+        message("\nGrab a cup of coffee this could take a while...\n")
+        flush.console()
+    }
+    
+    tic <- Sys.time()
+    v <- rep(NA, floor(max.k/10))
+    dat <- data.frame(k = v, time = v)
+    end <- data.frame(k = max.k^2)
+    
+    hm_many <- sapply(2:max.k, function(k){
+        if (k %% 10 == 0){
+            time <- as.numeric(difftime(Sys.time(), tic, units = "mins"))        
+            dat[k/10, 1:2] <<- c(k^2, time)          
+            if (k/10 > 1) {
+                fit <- with(dat, lm(time~k))
+                pred <- predict(fit, end) - time
+                if (pred < 0) pred <- 0
+                est <- paste0("; Remaining: ~", time2char(pred), " mins")
+            } else {
+                est <- ""
+            }
+            cur <- format(Sys.time(), format="%I:%M:%S")
+            elapsed <- time2char(time)
+            #gsub("^0+", "", as.character(round(as.numeric(difftime(Sys.time(), tic, units = "mins")), 1)))
+            cat(sprintf("%s of %s iterations (Current: %s; Elapsed: %s mins%s)\n", k, max.k, cur, elapsed, est)); flush.console()
+        }
+        burnin <- control[["burnin"]]
+        keep <- control[["keep"]]
+        if (is.null(burnin) | is.null(keep)) stop("Supply burnin & keep to control")
+        fitted <- topicmodels::LDA(x, k = k, method = method, control = control)
+        logLiks <- fitted@logLiks[-c(1:(burnin/keep))]
+        harmonicMean(logLiks)
+    })
+    
+    out <- c(2:max.k)[which.max(hm_many)]
+    if (which.max(hm_many) == max.k) warning("Optimal K is last value; suggest increasing `max.k`")
+    class(out) <- c("optimal_k", "optimal_k1", class(out))
+    attributes(out)[["k_dataframe"]] <- data.frame(
+        k = 2:max.k, 
+        harmonic_mean = hm_many
+    )
+    if (isTRUE(verbose)) cat(sprintf("Optimal number of topics = %s\n",as.numeric(out)))
+    out
+}
+
+harmonicMean <- function(logLikelihoods, precision=2000L) {
+    llMed <- Rmpfr::median(logLikelihoods)
+    as.double(llMed - log(Rmpfr::mean(exp(-Rmpfr::mpfr(logLikelihoods, prec = precision) + llMed))))
+}
+
+optimal_k2 <- function(x, max.k = 30, control = NULL, method = "VEM", ...){
+    
+    if (max.k > 20) {
+        message("\nGrab a cup of coffee this could take a while...\n")
+        flush.console()
+    }
+    
+    tic <- Sys.time()
+    v <- rep(NA, floor(max.k/10))
+    dat <- data.frame(k = v, time = v)
+    end <- data.frame(k = max.k^2)
+    
+    best_model <- lapply(seq(2, max.k, by=1), function(k){
+        if (k %% 10 == 0){
+            time <- as.numeric(difftime(Sys.time(), tic, units = "mins"))        
+            dat[k/10, 1:2] <<- c(k^2, time)            
+            if (k/10 > 1) {
+                fit <- with(dat, lm(time~k))
+                est <- paste0("; Remaining: ~", time2char(predict(fit, end) - time), " mins")
+            } else {
+                est <- ""
+            }
+            cur <- format(Sys.time(), format="%I:%M:%S")
+            elapsed <- time2char(time)
+            #gsub("^0+", "", as.character(round(as.numeric(difftime(Sys.time(), tic, units = "mins")), 1)))
+            cat(sprintf("%s of %s iterations (Current: %s; Elapsed: %s mins%s)\n", k, max.k, cur, elapsed, est)); flush.console()
+        }
+        topicmodels::LDA(x, k = k, method = method, control = control, ...)
+    })
+    
+    out <- data.frame(
+        k = c(2:max.k), 
+        logLik = sapply(best_model, logLik)
+    )
+    
+    class(out) <- c("optimal_k", "optimal_k2", "data.frame")
+    out
+}
+
+time2char <- function(x){
+    x <- as.character(round(x, 1))
+    if (identical("0", x)) return(x)
+    gsub("^0+", "", x)
+}
+
+plot.optimal_k2 <- function(x, ...){
+    
+    ggplot2::ggplot(x, ggplot2::aes_string(x="k", y="logLik")) + 
+        ggplot2::xlab("Number of Topics") + 
+        ggplot2::ylab("Log Likelihood") + 
+        ggplot2::geom_smooth(size=.8, se=FALSE, method="loess") + 
+        ggplot2::geom_line(size=1) + 
+        ggplot2::theme_bw()  + 
+        ggplot2::theme(
+            axis.title.x = ggplot2::element_text(vjust = -0.25, size = 14),
+            axis.title.y = ggplot2::element_text(size = 14, angle=90)
+        )
+    
+}
+
+# Otro método para determinar el número de tópicos óptimos
+ldaTuningResult <- function(dtm, from = 2, to = 40, by = 1, cores = 1L){
+    result <- FindTopicsNumber(
+        dtm,
+        topics = seq(from = from, to = to, by = by),
+        metrics = c("Griffiths2004", "CaoJuan2009", "Arun2010", "Deveaud2014"),
+        method = "Gibbs",
+        control = list(seed = 77),
+        mc.cores = cores,
+        verbose = TRUE
+    )
+    result <- mutate_each(result, funs(rescale), Griffiths2004:Deveaud2014)
+    result <- result %>% mutate(meanMax = (Griffiths2004 + Deveaud2014)/2)
+    result <- result %>% mutate(meanMin = (CaoJuan2009 + Arun2010)/2)
+    result$meanMaxLoess <- with(result, fitted(loess(meanMax ~ topics)))
+    result$meanMinLoess <- with(result, fitted(loess(meanMin ~ topics)))
+    
+    x.min <- result[which.max(result$meanMaxLoess),]$topic
+    x.max <- result[which.min(result$meanMinLoess),]$topics
+    y1.max <- result[which.max(result$meanMaxLoess),]$meanMaxLoess
+    y1.min <- result[which.max(result$meanMaxLoess),]$meanMinLoess 
+    y2.max <- result[which.min(result$meanMinLoess),]$meanMaxLoess
+    y2.min <- result[which.min(result$meanMinLoess),]$meanMinLoess 
+    
+    p <- plot_ly(result, x = ~topics, y = ~meanMax, name = "meanMax", type = "scatter") %>%
+        add_trace(x = ~topics, y = ~meanMin, name = "meanMin", type = "scatter") %>%
+        add_lines(y = ~result$meanMaxLoess,line = list(color = 'dodgerblue')) %>%
+        add_lines(y = ~result$meanMinLoess,line = list(color = 'orange')) %>%
+        add_lines(x = x.min, y = c(y1.min, y1.max),line = list(color = 'dodgerblue'), showlegend = F) %>%
+        add_lines(x = x.max, y = c(y2.min, y2.max),line = list(color = 'orange'), showlegend = F)
+    print(p)
+    return(result)
+}
+
+trWordDistribution <- function(lda_model) {
+    post <- posterior(lda_model)
+    cor_mat <- cor(t(post[["terms"]]))
+    cor_mat[ cor_mat < .05 ] <- 0
+    diag(cor_mat) <- 0
+    
+    graph <- graph.adjacency(cor_mat, weighted=TRUE, mode="lower")
+    graph <- delete.edges(graph, E(graph)[ weight < 0.05])
+    
+    sums <- colSums(post[["topics"]])
+    multiplier <- solve(median(sums), 33)
+    
+    E(graph)$edge.width <- E(graph)$weight
+    V(graph)$label <- paste("Topic", V(graph))
+    V(graph)$size <- sums * multiplier
+    
+    par(mar=c(0, 0, 3, 0))
+    set.seed(110)
+    plot.igraph(graph, edge.width = E(graph)$edge.width, 
+        edge.color = "dodgerblue", vertex.color = "salmon", 
+        vertex.frame.color = NA, vertex.label.color = "white")
+    title("Strength Between Topics Based On Word Probabilities", cex.main=.8)
+}
