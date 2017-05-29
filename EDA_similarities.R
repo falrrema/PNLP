@@ -34,7 +34,7 @@ val <- df[!split]
 
 # Preprocesamiento --------------------------------------------------------
 # Se define una función de preprocesamiento
-prep_fun <- function(text, stopWords = NULL) {
+prep_fun <- function(text) {
     text <- cleanText(text, removeNum = F, encode = F, stemming = T, removeExtraWords=NULL)
     return(text)
 }

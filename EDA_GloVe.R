@@ -56,7 +56,7 @@ vectorizer <- vocab_vectorizer(vocab,
     # don't vectorize input
     grow_dtm = FALSE, 
     # use window of 5 for context words
-    skip_grams_window = 10L)
+    skip_grams_window = 5L)
 tcm <- create_tcm(it, vectorizer)
 
 # Implementación de GloVe -------------------------------------------------
@@ -94,4 +94,23 @@ sam %>% group_by(is_duplicate) %>%
 sam %$% 
     wilcox.test(simGlove ~ is_duplicate)
 boxplot(simGlove~is_duplicate)
+
+# Relaxed word Movers distance ---------------------------------------------
+rwmd_model <- RWMD$new(word_vectors, method = "cosine")
+it1 <- itoken(train$question1[1:1000], preprocessor = prep_fun, tokenizer = word_tokenizer)
+it2 <- itoken(train$question2[1:1000], preprocessor = prep_fun, tokenizer = word_tokenizer)
+
+vectorizer <- vocab_vectorizer(vocab)
+
+dtm1 <- create_dtm(it1, vectorizer)
+dtm2 <- create_dtm(it2, vectorizer)
+rwmd_dist <- rwmd_model$pdist2(dtm1, dtm2)
+
+train[1:1000,] %>% mutate(rwmd = rwmd_dist) %>% 
+    group_by(is_duplicate) %>% 
+    summarise(RWMDmean = mean(rwmd), RWMDmed = median(rwmd))
+
+train[1:1000,] %>% mutate(rwmd = rwmd_dist)%$% 
+    boxplot(rwmd_dist~is_duplicate)
+
 
