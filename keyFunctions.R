@@ -166,7 +166,7 @@ getSizeFeatures <- function(data, string1, string2) {
     return(data)
 }
 
-getDistFeatures <- function(data, string1, string2, method = c("cosine", "jaccard"), ids = c("qid1", "qid2")) {
+getDistFeatures <- function(data, string1, string2, method = c("cosine", "jaccard"), it = NULL) {
     .string1 <- col_name(substitute(string1))
     .string2 <- col_name(substitute(string2))
     
@@ -174,9 +174,9 @@ getDistFeatures <- function(data, string1, string2, method = c("cosine", "jaccar
     stop_words <- prep_fun(tm::stopwords("en"))
     
     # Common vector space
-    stackDF <- rbind(data.table(ids = data[[ids[1]]], pregunta = data[[.string1]]), 
-        data.table(ids = data[[ids[2]]], pregunta = data[[.string2]]))
-    stackDF <- stackDF[!duplicated(stackDF$ids)] # elimino los duplicados
+    stackDF <- rbind(data.table(pregunta = data[[.string1]]), 
+        data.table(pregunta = data[[.string2]]))
+    stackDF <- stackDF[!duplicated(stackDF$pregunta)] # elimino los duplicados
     it <- itoken(stackDF$pregunta, preprocessor = prep_fun, tokenizer = tok_fun)
     
     # make tokens
@@ -293,31 +293,11 @@ getGloveFeature <- function(data, string1, string2, ids = c("qid1", "qid2")) {
     word_vectors <- glove$get_word_vectors() # Crea vectores de palabras
     
     # Get Vector Sum
+    tokenList <- list(it1 = data[[.string1]] %>% prep_fun() %>% word_tokenizer(), 
+        it2 = data[[.string2]] %>% prep_fun() %>% word_tokenizer())
     message("\n","Getting vector Sum feature")
-    token1 <- data[[.string1]] %>% prep_fun() %>% word_tokenizer() # Se preparan los tokens de preguntas
-    token2 <- data[[.string2]] %>% prep_fun() %>% word_tokenizer()
-    
-    n_cores <- detectCores() - 1 # Calculate the number of cores
-    core_clusters <- makeCluster(n_cores, type = "FORK") # Initiate cluster
-    word_vectors_token1 <- parLapply(core_clusters, token1, function(x) { # Se resmessagea los vectors de palabras
-        bool <- dimnames(word_vectors)[[1]] %in% x
-        wv <- word_vectors[bool, , drop = FALSE]
-    })
-    
-    word_vectors_token2 <- parLapply(core_clusters, token2, function(x) { 
-        bool <- dimnames(word_vectors)[[1]] %in% x
-        wv <- word_vectors[bool, , drop = FALSE]
-    })
-    stopCluster(core_clusters) # End cluster usage
-    
-    core_clusters <- makeCluster(n_cores, type = "FORK") # Initiate cluster
-    data$vectSum <- parSapply(core_clusters, 1:length(word_vectors_token1), function(x) { # Se determina la simulitud de preguntas
-        a <- (abs(word_vectors_token1[[x]]) %>% apply(1, sum) %>% sum)
-        b <- (abs(word_vectors_token2[[x]]) %>% apply(1, sum) %>% sum)
-        simM <- (a - b)^2
-    })
-    stopCluster(core_clusters) # End cluster usage
-    
+    data$vectSum <- vectSum(tokenList)
+
     # get Relaxed Word Movers Distance
     message("\n","Getting Relaxed Word Movers Distance")
     rwmd_model <- RWMD$new(word_vectors, method = "cosine")
@@ -331,6 +311,26 @@ getGloveFeature <- function(data, string1, string2, ids = c("qid1", "qid2")) {
     return(data)
 }
     
+vectSum <- function(BitokenList) {
+    lengthList <- length(BitokenList[[1]])
+    n_cores <- detectCores() - 1 # Calculate the number of cores
+    core_clusters <- makeCluster(n_cores, type = "FORK") # Initiate cluster
+    
+    vectorSum <- parLapply(core_clusters, 1:lengthList, function(x) { 
+        bool1 <- dimnames(word_vectors)[[1]] %in% BitokenList$it1[[x]]
+        bool2 <- dimnames(word_vectors)[[1]] %in% BitokenList$it2[[x]]
+        wv1 <- word_vectors[bool1, ,drop = FALSE]
+        wv2 <- word_vectors[bool2, ,drop = FALSE]
+        
+        a <- (abs(wv1) %>% apply(1, sum) %>% sum)
+        b <- (abs(wv2) %>% apply(1, sum) %>% sum)
+        simM <- (a - b)^2
+        return(simM)
+    })    
+    stopCluster(core_clusters) # End cluster usage
+    return(vectorSum)    
+}
+
 # Utilities ---------------------------------------------------------------
 
 col_name <- function (x, default = stop("Please supply column name", call. = FALSE)) {

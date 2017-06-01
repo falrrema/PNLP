@@ -11,13 +11,14 @@ library(magrittr)
 source("keyFunctions.R")
 
 # Leyendo datos y transformando
-df <- fread("data/train.csv")
+df <- fread("data/test_features.csv")
+# train <- fread("data/train_feature.csv")
 # df <- fread("data/test.csv")
 
-df$id <- as.numeric(df$id)
 setDT(df)
-setkey(df, id)
-# df <- df[1:1000,]
+# setDT(train)
+# setkey(train, id)
+# df <- sample_n(df, nrow(df)/3)
 
 # Similarity distances ----------------------------------------------------
 start.time <- Sys.time()
@@ -27,24 +28,25 @@ df <- getDistFeatures(df, question1, question2) # Variables de distancia de docu
 df <- getGloveFeature(df, question1, question2)
 end.time <- Sys.time()
 
+fwrite(df, file = "data/test_features.csv")
 cat("Tiempo estimado de ejecución:", end.time - start.time)
 
-# Sample Set --------------------------------------------------------------
-# Training
-set.seed(31)
-split <- caTools::sample.split(df$is_duplicate, SplitRatio = 0.8) # 80% de los datos totales
-forTrain <- df[split]
-
-# test
-test <- df[!split]
-fwrite(test, file = "data/test_features.csv")
-
-# Validation
-set.seed(32)
-split <- caTools::sample.split(forTrain$is_duplicate, SplitRatio = 0.8) # 80% de los datos train
-train <- forTrain[split]
-val <- forTrain[!split]
-
-fwrite(test, file = "data/train_features.csv")
-fwrite(val, file = "data/validation_features.csv")
-
+# # Sample Set --------------------------------------------------------------
+# # Training
+# set.seed(31)
+# split <- caTools::sample.split(df$is_duplicate, SplitRatio = 0.8) # 80% de los datos totales
+# forTrain <- df[split]
+# 
+# # test
+# test <- df[!split]
+# fwrite(test, file = "data/test_features.csv")
+# 
+# # Validation
+# set.seed(32)
+# split <- caTools::sample.split(forTrain$is_duplicate, SplitRatio = 0.8) # 80% de los datos train
+# train <- forTrain[split]
+# val <- forTrain[!split]
+# 
+# fwrite(test, file = "data/train_features.csv")
+# fwrite(val, file = "data/validation_features.csv")
+# 

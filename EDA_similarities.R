@@ -47,9 +47,9 @@ it2 <- itoken(train$question2, preprocessor = prep_fun, tokenizer = tok_fun, ids
 
 # Para comparar documentos se necesita un espacio vectorial común, por lo que se vectorizará 
 # por vocabulario del documento madre que es question 1 + question 2
-stackDF <- rbind(data.table(ids = df$qid1, pregunta = df$question1), 
-    data.table(ids = df$qid2, pregunta = df$question2))
-stackDF <- stackDF[!duplicated(stackDF$ids)] # elimino los duplicados
+stackDF <- rbind(data.table(pregunta = df$question1), 
+    data.table(pregunta = df$question2))
+stackDF <- stackDF[!duplicated(stackDF$pregunta)] # elimino los duplicados
 
 it <- itoken(stackDF$pregunta, preprocessor = prep_fun, tokenizer = tok_fun, ids = stackDF$ids)
 v_uni <- create_vocabulary(it)
@@ -74,17 +74,10 @@ dtm1 <- create_dtm(it1, vectorizer_uni_stop)
 dtm2 <- create_dtm(it2, vectorizer_uni_stop)
 jacSim_uni_stop <- psim2(dtm1, dtm2, method = "jaccard", norm = "none")
 
-compare <- data.table(id = train$id, jacSim = jacSim_uni)
-compare2 <- data.table(id = train$id, jacSim = jacSim_uni_stop)
-identical(compare, compare2) # están ordenados y son iguales
-
 # Bigrama
 dtm1 <- create_dtm(it1, vectorizer_bi)
 dtm2 <- create_dtm(it2, vectorizer_bi)
 jacSim_bi <- psim2(dtm1, dtm2, method = "jaccard", norm = "none")
-
-compare <- data.table(id = train$id, jacSim_uni = jacSim_uni, jacSim_bi = jacSim_bi)
-cbind(train[, .(qid1, qid2)], compare) # Calzan perfecto para devolverlo al training set
 
 # Bigrama sin stopwords
 dtm1 <- create_dtm(it1, vectorizer_bi_stop)
@@ -105,7 +98,7 @@ boxplot(jacSim_bi ~ is_duplicate, data = train, col = c("salmon", "dodgerblue3")
 boxplot(jacSim_bi_stop ~ is_duplicate, data = train, col = c("salmon", "dodgerblue3"))
 
 train %>% group_by(is_duplicate) %>% # Todas las variables muestran promedios diferentes entre 0 y 1
-    summarise_each(funs(mean), jacSim_uni:jacSim_bi_tfidf)
+    summarise_each(funs(mean), jacSim_uni:jacSim_bi_stop)
 
 # Similitud de Cosine ----------------------------------------------------
 # Unigrama

@@ -11,7 +11,7 @@ library(magrittr)
 source("keyFunctions.R")
 
 # Leyendo datos y transformando
-df <- fread("data/train.csv")
+df <- fread("data/test_features.csv")
 df$id <- as.numeric(df$id)
 df %>% count(is_duplicate) %>%
     mutate(prop = n/sum(n)) # Proporción de 0.369 para duplicados
@@ -82,6 +82,15 @@ simGlove <- sapply(1:length(word_vectors_token1), function(x) { # Se determina l
     b <- (abs(word_vectors_token2[[x]]) %>% apply(1, sum) %>% sum)
     simM <- (a - b)^2
 })
+
+simGlove2 <- sapply(1:length(word_vectors_token1), function(x) { # Se determina la simulitud de preguntas
+    a <- (abs(word_vectors_token1[[x]]) %>% apply(2, sum) %>% sum)
+    b <- (abs(word_vectors_token2[[x]]) %>% apply(2, sum) %>% sum)
+    simM <- (a - b)^2
+})
+
+identical(simGlove, simGlove2)
+
 
 # Chequeo
 select(train, is_duplicate) %>% mutate(simGlove = simGlove)
