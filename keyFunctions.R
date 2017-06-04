@@ -259,41 +259,51 @@ jacCosineDist <- function(it1, it2, vect, distMethod, norm = "none", tfidf = FAL
     return(dist)
 }
 
-getGloveFeature <- function(data, string1, string2) {
+getWordVectors <- function(file = "data/test.csv", string1, string2) {
+  .string1 <- col_name(substitute(string1))
+  .string2 <- col_name(substitute(string2))
+  stop_words <- prep_fun(tm::stopwords("en"))
+  
+  # Common vector space
+  stackDF <- rbind(data.table(pregunta = data[[.string1]]), 
+                   data.table(pregunta = data[[.string2]]))
+  stackDF <- stackDF[!duplicated(stackDF$pregunta)] # elimino los duplicados
+  
+  # Create iterator over tokens
+  message("\n", "Making iterator over tokens")
+  tokens <- space_tokenizer(stackDF$pregunta)
+  it <- itoken(stackDF$pregunta, preprocessor = prep_fun, tokenizer = space_tokenizer)
+  
+  # Create vocabulary. Terms will be unigrams (simple words).
+  message("\n", "Making vocabulary")
+  vocab <- create_vocabulary(it)
+  vocab <- prune_vocabulary(vocab, term_count_min = 5L)
+  
+  # Make Vectorizers
+  message("\n", "Making vectorizers")
+  vectorizerVS <- vocab_vectorizer(vocab, 
+                                   # don't vectorize input
+                                   grow_dtm = FALSE, 
+                                   # use window of 5 for context words
+                                   skip_grams_window = 5L)
+  
+  # make Glove
+  message("\n", "Implementing GloVe")
+  tcm <- create_tcm(it, vectorizerVS)
+  glove <- GlobalVectors$new(word_vectors_size = 50, vocabulary = vocab, x_max = 10)
+  glove$fit(tcm, n_iter = 100)
+  word_vectors <- glove$get_word_vectors() # Crea vectores de palabras
+  
+  return(word_vectors)
+}
+
+getGloveFeature <- function(data, string1, string2, word_vectors = NULL) {
     .string1 <- col_name(substitute(string1))
     .string2 <- col_name(substitute(string2))
     stop_words <- prep_fun(tm::stopwords("en"))
     
-    # Common vector space
-    stackDF <- rbind(data.table(pregunta = data[[.string1]]), 
-        data.table(pregunta = data[[.string2]]))
-    stackDF <- stackDF[!duplicated(stackDF$pregunta)] # elimino los duplicados
-
-    # Create iterator over tokens
-    message("\n", "Making iterator over tokens")
-    tokens <- space_tokenizer(stackDF$pregunta)
-    it <- itoken(stackDF$pregunta, preprocessor = prep_fun, tokenizer = space_tokenizer)
-    
-    # Create vocabulary. Terms will be unigrams (simple words).
-    message("\n", "Making vocabulary")
-    vocab <- create_vocabulary(it)
-    vocab <- prune_vocabulary(vocab, term_count_min = 5L)
-    
-    # Make Vectorizers
-    message("\n", "Making vectorizers")
-    vectorizerVS <- vocab_vectorizer(vocab, 
-        # don't vectorize input
-        grow_dtm = FALSE, 
-        # use window of 5 for context words
-        skip_grams_window = 5L)
-    vectorizerRWMD <- vocab_vectorizer(vocab)
-    
-    # make Glove
-    message("\n", "Implementing GloVe")
-    tcm <- create_tcm(it, vectorizerVS)
-    glove <- GlobalVectors$new(word_vectors_size = 50, vocabulary = vocab, x_max = 10)
-    glove$fit(tcm, n_iter = 100)
-    word_vectors <- glove$get_word_vectors() # Crea vectores de palabras
+    # Making word_vectors
+    word_vectors <- getWordVectors(file = "data/test.csv", question1, question2)
     
     # Get Vector Sum
     it1 <- data[[.string1]] %>% prep_fun() %>% word_tokenizer()
@@ -311,7 +321,6 @@ getGloveFeature <- function(data, string1, string2) {
     dtm1 <- create_dtm(it1, vectorizerRWMD)
     dtm2 <- create_dtm(it2, vectorizerRWMD)
     data$rwmdDist <- rwmd_model$pdist2(dtm1, dtm2)
-    
     return(data)
 }
     

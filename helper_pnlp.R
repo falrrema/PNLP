@@ -2,28 +2,17 @@
 # Helper PNLP script
 ######################
 
-if (!require("plotly")) install.packages("plotly"); library(plotly)
-if (!require("data.table")) install.packages("data.table"); library(data.table)
-if (!require("readxl")) install.packages("readxl"); library(readxl)
-if (!require("wordcloud")) install.packages("wordcloud"); library(wordcloud)
-if (!require("RColorBrewer")) install.packages("RColorBrewer"); library(RColorBrewer)
-if (!require("tm")) install.packages("tm"); library(tm)
-if (!require("ngram")) install.packages("ngram"); library(ngram)
-if (!require("dplyr")) install.packages("dplyr"); library(dplyr)
-if (!require("ROCR")) install.packages("ROCR"); library(ROCR)
-if (!require("parallel")) install.packages("parallel"); library(parallel)
-if (!require("pacman")) install.packages("pacman"); library(pacman)
-if (!require("gofastr")) install.packages("gofastr"); library(gofastr)
-if (!require("ldatuning")) install.packages("ldatuning"); library(ldatuning)
-if (!require("scales")) install.packages("scales"); library(scales)
-if (!require("fuzzywuzzyR")) install.packages("fuzzywuzzyR"); library(fuzzywuzzyR)
-if (!require("tidytext")) install.packages("tidytext"); library(tidytext)
-if (!require("gclus")) install.packages("gclus"); library(gclus)
-if (!require("mlr")) install.packages("mlr"); library(mlr)
-# if (!require("FSelector")) install.packages("FSelector")
+installThesePackages <- function() {
+  list.of.packages <- c("magrittr", "ggthemes","extrafont", "googlesheets","tidyr",
+                        "googlesheets", "lubridate", "magrittr", "ggplot2", "plotly", "dplyr", 
+                        "data.table", "tm", "readxl", "RColorBrewer", "ngram", "wordcloud",
+                        "httpuv", "tm", "text2vec", "wordcloud", "parallel", "gofastr",
+                        "pacman", "scales", "tidytext", "mlr", "topicmodels", "SnowballC")
+  new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+  if(length(new.packages)) install.packages(new.packages)
+}
 
-pacman::p_load(ggplot2, topicmodels, Rmpfr)
-
+installThesePackages()
 Sys.setlocale(locale="es_ES.UTF-8") # Para visualizar caracteres especiales
 
 # Missingness --------------------------------------------------------------
@@ -63,8 +52,6 @@ table_NA <- function(data) {
     missing.data.order <- missing.data[order(missing.data$number.na, decreasing = T),]
     return(missing.data.order)
 } 
-
-
 
 # CleanText ---------------------------------------------------------------
 
@@ -143,70 +130,6 @@ cleanText <- function(whateverText, columnNames = F, removeNum = T, encode = T, 
     return(whateverText)
 }
 
-PNLPcleanText <- function(text, remove_stop_words = TRUE){
-    # Clean the text, with the option to remove stop_words
-    text = tolower(text)
-    # Clean the text
-    # text = gsub("[^A-Za-z0-9]", " ", text)
-    text = gsub("what's", "", text)
-    text = gsub("\'s", " ", text)
-    text = gsub("\'ve", " have ", text)
-    text = gsub("can't", "cannot ", text)
-    text = gsub("n't", " not ", text)
-    text = gsub("I'm", "I am", text)
-    text = gsub(" m ", " am ", text)
-    text = gsub("\'re", " are ", text)
-    text = gsub("\'d", " would ", text)
-    text = gsub("\'ll", " will ", text)
-    text = gsub("60k", " 60000 ", text)
-    text = gsub(" e g ", " eg ", text)
-    text = gsub(" b g ", " bg ", text)
-    #text = gsub("\0s", "0", text)
-    text = gsub(" 9 11 ", "911", text)
-    text = gsub("e-mail", "email", text)
-    text = gsub("\\s{2,}", " ", text)
-    text = gsub("quikly", "quickly", text)
-    text = gsub(" usa ", " America ", text)
-    text = gsub(" u s ", " America ", text)
-    text = gsub(" uk ", " England ", text)
-    text = gsub("imrovement", "improvement", text)
-    text = gsub("intially", "initially", text)
-    text = gsub(" dms ", "direct messages ", text)  
-    text = gsub("demonitization", "demonetization", text) 
-    text = gsub("actived", "active", text)
-    text = gsub("kms", " kilometers ", text)
-    text = gsub("KMs", " kilometers ", text)
-    text = gsub(" cs ", " computer science ", text) 
-    text = gsub(" upvotes ", " up votes ", text)
-    text = gsub(" iPhone ", " phone ", text)
-    #text = gsub("\0rs ", " rs ", text)
-    text = gsub("calender", "calendar", text)
-    text = gsub("ios", "operating system", text)
-    text = gsub("programing", "programming", text)
-    text = gsub("bestfriend", "best friend", text)
-    text = gsub("dna", "DNA", text)
-    text = gsub("III", "3", text) 
-    text = gsub("the us", "America", text)
-    text = gsub(" J K ", " JK ", text)
-    
-    # Remove punctuation from text
-    # text = removePunctuation(text)
-    
-    stop_words = c('the','a','an','and','but','if','or','because','as','what',
-        'which','this','that','these','those','then','just','so','than','such','both',
-        'through','about','for','is','of','while','during','to','What','Which','Is','If',
-        'While','This')
-    stop_words = c(stop_words, tolower(tm::stopwords("en")))
-    # Optionally, remove stop words
-    if (remove_stop_words) text <- removeWords(text, stop_words)
-    
-    # Cleaning white spaces
-    text %<>% stripWhitespace() %>% trimws()
-    
-    return(text)
-}
-
-
 # Multifile reading -------------------------------------------------------
 
 singleRead <- function(file, type = "csv") {
@@ -236,8 +159,6 @@ groupReading <- function(filesFolder, type = "csv", pattern = NULL) {
     dataMerge <- data.table(dataMerge)
     return(dataMerge)
 }   
-
-
 
 # Nube de palabras --------------------------------------------------------
 
