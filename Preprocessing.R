@@ -1,7 +1,7 @@
 #################
 # Preprocessing
 #################
-setwd("~/Kaggle/PNLP")
+setwd("~/Google Drive/PNLP")
 Sys.setlocale(locale = "es_ES.UTF-8") # Para visualizar caracteres especiales
 
 library(text2vec)
@@ -26,7 +26,6 @@ df$wordShare <- wordShareIndex(df, question1, question2) # Variable de % de pala
 df <- getDistFeatures(df, question1, question2) # Variables de distancia de documentos
 df <- getGloveFeature(df, question1, question2)
 end.time <- Sys.time()
-
 cat("Tiempo estimado de ejecución:", difftime(end.time, start.time, units = c("hours")))
 
 

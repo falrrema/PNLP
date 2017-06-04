@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 from fuzzywuzzy import fuzz
 
-data = pd.read_csv('data/train_features.csv', sep=',')
+data = pd.read_csv('data/train.csv', sep=',')
 
 data['common_words'] = data.apply(lambda x: len(set(str(x['question1']).lower().split()).intersection(set(str(x['question2']).lower().split()))), axis=1)
 data['fuzz_qratio'] = data.apply(lambda x: fuzz.QRatio(str(x['question1']), str(x['question2'])), axis=1)
