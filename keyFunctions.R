@@ -5,6 +5,7 @@
 if (!require("tm")) install.packages("tm"); library(tm)
 if (!require("SnowballC")) install.packages("SnowballC"); library(SnowballC)
 if (!require("parallel")) install.packages("parallel"); library(parallel)
+if (!require("pbapply")) install.packages("pbapply"); library(pbapply)
 
 
 # CleanText ---------------------------------------------------------------
@@ -120,7 +121,8 @@ wordShareIndex <- function(data, string1, string2) {
     return(round(wordShare, 4))
 }
 
-getSizeFeatures <- function(data, string1, string2) {
+getSizeFeatures <- function(data, id, string1, string2, nCores = 0) {
+    .id <- col_name(substitute(id))
     .string1 <- col_name(substitute(string1))
     .string2 <- col_name(substitute(string2))
 
@@ -128,22 +130,23 @@ getSizeFeatures <- function(data, string1, string2) {
     data <- data.table(data)
     
     cat("Cleaning Stopwords", "\n")
-    dt <- tidyr::gather(data, preg, text, get(.string1), get(.string2))
-    n_cores <- detectCores() - 1 # Calculate the number of cores
+    dt <- data %>% select_(.id, .string1, .string2) %>% 
+      tidyr::gather(preg, text, get(.string1), get(.string2))
+    n_cores <- detectCores() - nCores # Calculate the number of cores
     core_clusters <- makeCluster(n_cores, type = "FORK") # Initiate cluster
-    dt$textClean <- parSapply(core_clusters, dt$text, function(t) {
+    dt$textClean <- pbapply::pbsapply(dt$text, function(t) {
         clean <- prep_fun(t, stopW) # Sin stopwords
         return(clean)
-    })
+    }, cl = core_clusters)
     stopCluster(core_clusters) # End cluster usage
     
     dt <- dt %>% 
-        select(-text, ends_with("id"), preg, textClean) %>% 
+        select(-text) %>% 
         tidyr::spread(preg, textClean) %>% 
-        rename(question1Clean = question1, question2Clean = question2) %>% 
-        select(ends_with("id"), starts_with("question"))
-    data <- data %>%
-        inner_join(dt, by = names(data)[grepl("id", names(data))])
+        rename_(question1Clean = .string1, question2Clean = .string2)
+    dt <- data %>% 
+      select_(.id, .string1, .string2) %>% 
+      inner_join(dt, by = .id)
     
     # Word difference
     wordCount <- function(text) {
@@ -151,20 +154,24 @@ getSizeFeatures <- function(data, string1, string2) {
     }
     
     cat("Calculating word difference", "\n")
-    wordDiff <- data %>% select(starts_with("question")) %>% 
+    mutate_call1 <- lazyeval::interp(~ abs(a - b), a = as.name(.string1), b = as.name(.string2))
+    mutate_call2 <- lazyeval::interp(~ abs(a - b), a = as.name("question1Clean"), b = as.name("question2Clean"))
+    
+    wordDiff <- dt %>% select_(quote(-id)) %>% 
         mutate_each(funs(wordCount)) %>% 
-        transmute(word_diff = abs(question1-question2), word_diff_stop = abs(question1Clean-question2Clean))
+        transmute_(word_diff = setNames(mutate_call1, "word_diff"),
+                   word_diff_stop = setNames(mutate_call2, "word_diff_stop"))
     
     # Character difference
     cat("Calculating character difference", "\n")
-    charDiff <- data %>% select(starts_with("question")) %>% 
-        mutate_each(funs(nchar)) %>% 
-        transmute(char_diff = abs(question1-question2), char_diff_stop = abs(question1Clean-question2Clean))
+    charDiff <- dt %>% select_(quote(-id)) %>% 
+      mutate_each(funs(nchar)) %>% 
+      transmute_(char_diff = setNames(mutate_call1, "char_diff"),
+                 char_diff_stop = setNames(mutate_call2, "char_diff_stop"))
     
     # Juntando diferencias
     data <- data.table(data)
     data <- cbind(data, wordDiff, charDiff)
-    data[, c("question1Clean", "question2Clean") := NULL]
     return(data)
 }
 
@@ -263,6 +270,7 @@ getWordVectors <- function(file = "data/test.csv", string1, string2) {
   .string1 <- col_name(substitute(string1))
   .string2 <- col_name(substitute(string2))
   stop_words <- prep_fun(tm::stopwords("en"))
+  data <- fread(file)
   
   # Common vector space
   stackDF <- rbind(data.table(pregunta = data[[.string1]]), 
@@ -314,6 +322,7 @@ getGloveFeature <- function(data, string1, string2, word_vectors = NULL) {
 
     # get Relaxed Word Movers Distance
     message("\n","Getting Relaxed Word Movers Distance")
+    vectorizerRWMD <- vocab_vectorizer(vocab)
     rwmd_model <- RWMD$new(word_vectors, method = "cosine")
     it1 <- itoken(data[[.string1]] , preprocessor = prep_fun, tokenizer = word_tokenizer)
     it2 <- itoken(data[[.string2]] , preprocessor = prep_fun, tokenizer = word_tokenizer)
@@ -326,7 +335,7 @@ getGloveFeature <- function(data, string1, string2, word_vectors = NULL) {
     
 vectSum <- function(it1, it2, wv) {
     lengthList <- length(it1)
-    n_cores <- detectCores() - 2 # Calculate the number of cores
+    n_cores <- detectCores() - 1 # Calculate the number of cores
     core_clusters <- makeCluster(n_cores, type = "FORK") # Initiate cluster
     
     vectorSum <- pbapply::pbsapply(1:lengthList, function(x) { 

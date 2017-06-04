@@ -19,7 +19,7 @@ if (what == "train") {
   df <- fread("data/test_features.csv")
 }
 
-# Similarity distances ----------------------------------------------------
+# Feature extraction ----------------------------------------------------
 start.time <- Sys.time()
 df <- getSizeFeatures(df, question1, question2) # Variables básica de diffLargo
 df$wordShare <- wordShareIndex(df, question1, question2) # Variable de % de palabras compartidas
@@ -27,7 +27,6 @@ df <- getDistFeatures(df, question1, question2) # Variables de distancia de docu
 df <- getGloveFeature(df, question1, question2)
 end.time <- Sys.time()
 cat("Tiempo estimado de ejecución:", difftime(end.time, start.time, units = c("hours")))
-
 
 if (what == "test") {
   fwrite(df, file = "data/test_features.csv")
