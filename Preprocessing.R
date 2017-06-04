@@ -17,7 +17,7 @@ df <- fread("data/test_features.csv")
 
 setDT(df)
 # setDT(train)
-# setkey(train, id)
+setkey(df, test_id)
 # df <- sample_n(df, nrow(df)/3)
 
 # Similarity distances ----------------------------------------------------
@@ -25,11 +25,14 @@ start.time <- Sys.time()
 df <- getSizeFeatures(df, question1, question2) # Variables básica de diffLargo
 df$wordShare <- wordShareIndex(df, question1, question2) # Variable de % de palabras compartidas
 df <- getDistFeatures(df, question1, question2) # Variables de distancia de documentos
+end.time <- Sys.time()
+
+start.time <- Sys.time()
 df <- getGloveFeature(df, question1, question2)
 end.time <- Sys.time()
 
 fwrite(df, file = "data/test_features.csv")
-cat("Tiempo estimado de ejecución:", end.time - start.time)
+cat("Tiempo estimado de ejecución:", difftime(end.time, start.time, units = c("hours")))
 
 # # Sample Set --------------------------------------------------------------
 # # Training

@@ -11,7 +11,7 @@ library(magrittr)
 source("keyFunctions.R")
 
 # Leyendo datos y transformando
-df <- fread("data/test_features.csv")
+df <- fread("data/train_features.csv")
 df$id <- as.numeric(df$id)
 df %>% count(is_duplicate) %>%
     mutate(prop = n/sum(n)) # Proporción de 0.369 para duplicados
@@ -22,7 +22,7 @@ setkey(df, id)
 # Sample Set --------------------------------------------------------------
 # Obteniendo una muestra para trabajar más rápido
 set.seed(31)
-split <- caTools::sample.split(df$is_duplicate, SplitRatio = 0.05) # 5% de los datos
+split <- caTools::sample.split(df$is_duplicate, SplitRatio = 0.2) # 5% de los datos
 df <- df[split]
 df %>% count(is_duplicate) %>%
     mutate(prop = n/sum(n)) # Proporción de 0.369 para duplicados, prácticamente identicos 
@@ -50,6 +50,7 @@ tokens <- space_tokenizer(stackDF$pregunta)
 # Create vocabulary. Terms will be unigrams (simple words).
 it <- itoken(stackDF$pregunta, preprocessor = prep_fun, tokenizer = space_tokenizer)
 vocab <- create_vocabulary(it)
+vocab <- prune_vocabulary(vocab, term_count_min = 5L)
 
 # Use our filtered vocabulary
 vectorizer <- vocab_vectorizer(vocab, 
@@ -60,37 +61,14 @@ vectorizer <- vocab_vectorizer(vocab,
 tcm <- create_tcm(it, vectorizer)
 
 # Implementación de GloVe -------------------------------------------------
-glove <- GlobalVectors$new(word_vectors_size = 100, vocabulary = vocab, x_max = 10)
+glove <- GlobalVectors$new(word_vectors_size = 50, vocabulary = vocab, x_max = 10)
 glove$fit(tcm, n_iter = 100)
 word_vectors <- glove$get_word_vectors() # Crea vectores de palabras
 
-token1 <- train$question1 %>% prep_fun() %>% word_tokenizer() # Se preparan los tokens de preguntas
-token2 <- train$question2 %>% prep_fun() %>% word_tokenizer()
+it1 <- train$question1 %>% prep_fun() %>% word_tokenizer()
+it2 <- train$question2 %>% prep_fun() %>% word_tokenizer()
 
-word_vectors_token1 <- lapply(token1, function(x) { # Se rescata los vectors de palabras
-    bool <- dimnames(word_vectors)[[1]] %in% x
-    wv <- word_vectors[bool, , drop = FALSE]
-})
-
-word_vectors_token2 <- lapply(token2, function(x) { 
-    bool <- dimnames(word_vectors)[[1]] %in% x
-    wv <- word_vectors[bool, , drop = FALSE]
-})
-
-simGlove <- sapply(1:length(word_vectors_token1), function(x) { # Se determina la simulitud de preguntas
-    a <- (abs(word_vectors_token1[[x]]) %>% apply(1, sum) %>% sum)
-    b <- (abs(word_vectors_token2[[x]]) %>% apply(1, sum) %>% sum)
-    simM <- (a - b)^2
-})
-
-simGlove2 <- sapply(1:length(word_vectors_token1), function(x) { # Se determina la simulitud de preguntas
-    a <- (abs(word_vectors_token1[[x]]) %>% apply(2, sum) %>% sum)
-    b <- (abs(word_vectors_token2[[x]]) %>% apply(2, sum) %>% sum)
-    simM <- (a - b)^2
-})
-
-identical(simGlove, simGlove2)
-
+system.time(vectorSum <- vectSum(it1, it2, word_vectors))
 
 # Chequeo
 select(train, is_duplicate) %>% mutate(simGlove = simGlove)
