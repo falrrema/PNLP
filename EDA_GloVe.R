@@ -1,7 +1,7 @@
 ####################
 # EDA GLOVE
 ####################
-setwd("~/Kaggle/PNLP")
+setwd("~/Dropbox/PNLP")
 Sys.setlocale(locale = "es_ES.UTF-8") # Para visualizar caracteres especiales
 
 library(text2vec)

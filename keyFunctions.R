@@ -5,7 +5,19 @@
 if (!require("tm")) install.packages("tm"); library(tm)
 if (!require("SnowballC")) install.packages("SnowballC"); library(SnowballC)
 if (!require("parallel")) install.packages("parallel"); library(parallel)
+if (!require("parallelMap")) install.packages("parallelMap"); library(parallelMap)
 if (!require("pbapply")) install.packages("pbapply"); library(pbapply)
+if (!require("dplyr")) install.packages("dplyr"); library(dplyr)
+if (!require("data.table")) install.packages("data.table"); library(data.table)
+if (!require("text2vec")) install.packages("text2vec"); library(text2vec)
+if (!require("magrittr")) install.packages("magrittr"); library(magrittr)
+if (!require("tidyr")) install.packages("tidyr"); library(tidyr)
+if (!require("ggplot2")) install.packages("ggplot2"); library(ggplot2)
+
+mlrDependencies <- function() {
+  cat("Go for a coffee this could take a while...")
+  devtools::install_github("mlr-org/mlr", dependencies = c("Depends", "Imports", "Suggests"))
+}
 
 
 # CleanText ---------------------------------------------------------------
@@ -101,7 +113,7 @@ wordShareIndex <- function(data, string1, string2) {
     string_pair <- paste(data[[.string1]], data[[.string2]], sep = "<eos>")
     
     # Parallel computation
-    n_cores <- detectCores() - 1 # Calculate the number of cores
+    n_cores <- detectCores() # Calculate the number of cores
     cat("Paralelizando.... ocupando", n_cores, "núcleos")
     core_clusters <- makeCluster(n_cores) # Initiate cluster
     
@@ -133,6 +145,7 @@ getSizeFeatures <- function(data, id, string1, string2, nCores = 0) {
     dt <- data %>% select_(.id, .string1, .string2) %>% 
       tidyr::gather(preg, text, get(.string1), get(.string2))
     n_cores <- detectCores() - nCores # Calculate the number of cores
+    cat("Using", n_cores, "cores", "\n")
     core_clusters <- makeCluster(n_cores, type = "FORK") # Initiate cluster
     dt$textClean <- pbapply::pbsapply(dt$text, function(t) {
         clean <- prep_fun(t, stopW) # Sin stopwords
@@ -266,7 +279,7 @@ jacCosineDist <- function(it1, it2, vect, distMethod, norm = "none", tfidf = FAL
     return(dist)
 }
 
-getWordVectors <- function(file = "data/test.csv", string1, string2) {
+getVocabularyTokens <- function(file = "data/test.csv", string1, string2) {
   .string1 <- col_name(substitute(string1))
   .string2 <- col_name(substitute(string2))
   stop_words <- prep_fun(tm::stopwords("en"))
@@ -286,7 +299,10 @@ getWordVectors <- function(file = "data/test.csv", string1, string2) {
   message("\n", "Making vocabulary")
   vocab <- create_vocabulary(it)
   vocab <- prune_vocabulary(vocab, term_count_min = 5L)
-  
+  return(list(vocabulary = vocab, iTokens = it))
+}
+
+getWordVectors<- function(vocab, it) {
   # Make Vectorizers
   message("\n", "Making vectorizers")
   vectorizerVS <- vocab_vectorizer(vocab, 
@@ -304,21 +320,42 @@ getWordVectors <- function(file = "data/test.csv", string1, string2) {
   
   return(word_vectors)
 }
-
-getGloveFeature <- function(data, string1, string2, word_vectors = NULL) {
+  
+getGloveFeature <- function(data, string1, string2, word_vectors = NULL, vocab = NULL, nCores = 0) {
     .string1 <- col_name(substitute(string1))
     .string2 <- col_name(substitute(string2))
-    stop_words <- prep_fun(tm::stopwords("en"))
+    data <- data.table(data)
     
-    # Making word_vectors
-    word_vectors <- getWordVectors(file = "data/test.csv", question1, question2)
-    
+    if (is.null(word_vectors)) {
+      # Making word_vectors
+      vocabToken <- getVocabularyTokens(file = "data/test.csv", question1, question2)
+      vocab <- vocabToken$vocabulary
+      word_vectors <- getWordVectors(vocab = vocab, it = vocabToken$iToken)
+    } else if (is.null(vocab)) {
+      vocabToken <- getVocabularyTokens(file = "data/test.csv", question1, question2)
+      vocab <- vocabToken$vocabulary
+    }
     # Get Vector Sum
-    it1 <- data[[.string1]] %>% prep_fun() %>% word_tokenizer()
-    it2 <- data[[.string1]] %>% prep_fun() %>% word_tokenizer()
-    
     message("\n","Getting vector Sum feature")
-    data$vectSum <- vectSum(it1, it2, word_vectors)
+
+    it1 <- parPrep_proc(data[[.string1]], nCores = 0)
+    it2 <- parPrep_proc(data[[.string2]], nCores = 0, verbose = F)
+    
+    n_cores <- detectCores() - nCores # Calculate the number of cores
+    cat("Using", n_cores, "cores for matrix sumation", "\n")
+    core_clusters <- makeCluster(n_cores) # Initiate cluster
+    clusterEvalQ(core_clusters, c("wv","it"))
+    
+    sumMatrix1 <- pbapply::pbsapply(1:length(it1), function(t) {
+      return(sum(abs(word_vectors[dimnames(word_vectors)[[1]] %in% it1[[t]][[1]], ,drop = FALSE])))
+    }, cl = core_clusters)
+    
+    sumMatrix2 <- pbapply::pbsapply(1:length(it2), function(t) {
+      return(sum(abs(word_vectors[dimnames(word_vectors)[[1]] %in% it2[[t]][[1]], ,drop = FALSE])))
+    }, cl = core_clusters)
+    stopCluster(core_clusters) # End cluster usage
+    
+    data$vectSum <- (sumMatrix1-sumMatrix2)^2
 
     # get Relaxed Word Movers Distance
     message("\n","Getting Relaxed Word Movers Distance")
@@ -333,41 +370,49 @@ getGloveFeature <- function(data, string1, string2, word_vectors = NULL) {
     return(data)
 }
     
-vectSum <- function(it1, it2, wv) {
-    lengthList <- length(it1)
-    n_cores <- detectCores() - 1 # Calculate the number of cores
-    core_clusters <- makeCluster(n_cores, type = "FORK") # Initiate cluster
-    
-    vectorSum <- pbapply::pbsapply(1:lengthList, function(x) { 
-        wv1 <- wv[dimnames(wv)[[1]] %in% it1[[x]], ,drop = FALSE]
-        wv2 <- wv[dimnames(wv)[[1]] %in% it2[[x]], ,drop = FALSE]
-        simM <- (sum(abs(wv1)) - sum(abs(wv2)))^2
-        return(simM)
-    }, cl = core_clusters)    
-    stopCluster(core_clusters) # End cluster usage
-    return(vectorSum)    
+parPrep_proc <- function(vectorText, nCores = 0, verbose = T) {
+  n_cores <- detectCores() - nCores # Calculate the number of cores
+  
+  if (verbose == T)  cat("Using", n_cores, "cores for text preprocessing", "\n")
+  
+  core_clusters <- makeCluster(n_cores) # Initiate cluster
+  clusterExport(core_clusters, c("prep_fun", "cleanText", "word_tokenizer"))
+  clusterEvalQ(core_clusters, library(tm))
+  
+  vectorText <- pbapply::pblapply(vectorText, function(t) {
+    return(word_tokenizer(prep_fun(t)))
+  }, cl = core_clusters)
+  stopCluster(core_clusters) # End cluster usage
+  return(vectorText)
 }
 
-vectSum2 <- function(BitokenList, wv) {
-    wordDT <- as.data.table(wv, keep.rownames = T)
-    setkey(wordDT, rn)
-    
-    lengthList <- length(BitokenList[[1]])
-    n_cores <- detectCores() - 1 # Calculate the number of cores
-    core_clusters <- makeCluster(n_cores, type = "FORK") # Initiate cluster
-    
-    vectorSum <- pbapply::pbsapply(1:lengthList, function(x) { 
-        wv1 <- wordDT[BitokenList$it1[[1]]]
-        wv2 <- wordDT[BitokenList$it2[[1]]]
-        wv1[, rn := NULL]
-        wv2[, rn := NULL]
-        
-        simM <- (sum(abs(as.matrix(wv1))) - sum(abs(as.matrix(wv2))))^2
-        return(simM)
-    }, cl = core_clusters)    
-    stopCluster(core_clusters) # End cluster usage
-    return(vectorSum)    
+parSumMatrix <- function(wv, it, nCores = 0, verbose = T) {
+  
+  return(sumMatrix)
 }
+
+
+# Feature Selection -------------------------------------------------------
+
+fSelection <- function(data, cv = 10) {
+    task <- taskingProcess(data) 
+    resamp <- makeResampleDesc("CV", iters = cv, stratify = T)
+    meas <- list(mlr::auc, logloss, brier)
+    
+    ctrlRandom <- makeFeatSelControlRandom(maxit = 20L)
+    ctrlSeq <- makeFeatSelControlSequential(method = "sfs", alpha = 0.02)
+    
+    parallelStartSocket(parallel::detectCores(), show.info = T)
+    cat("\n","Feature importance by Logictic Regression")
+    logFeatures <- selectFeatures(learner = "classif.logreg", task = task, resampling = resamp, control = ctrlSeq)
+    
+    cat("\n", "Feature importance by Random Forrest")
+    rfFeatures = selectFeatures(learner = "classif.randomForest", task = task, resampling = resamp, control = ctrlRandom)
+    parallelStop()
+    
+    return(list(logFeatures, rfFeatures))
+}
+
 
 # Utilities ---------------------------------------------------------------
 
@@ -382,3 +427,26 @@ col_name <- function (x, default = stop("Please supply column name", call. = FAL
         return(x)
     stop("Invalid column specification", call. = FALSE)
 }
+
+# Determina el número y % de datos vacíos por columnas en un DF
+table_NA <- function(data) {
+    data <- data.frame(data)
+    names_column <- names(data)
+    list_na <- sapply(names_column, function(t) sum(is.na(data[t])))
+    missing_data <- data.frame(column = names(data), numberNA = list_na, row.names = NULL, stringsAsFactors = F)
+    missing_data$percent <- round(missing_data$numberNA/nrow(data)*100, 4)
+    missing_dataOrder <- missing_data[order(missing_data$numberNA, decreasing = T),]
+    return(missing_dataOrder)
+} 
+
+taskingProcess <- function(df, target = "is_duplicate", pos = "1") {
+    task <- makeClassifTask(data = df, target = target, positive = pos)
+    imp <- mlr::impute(task, classes = list(integer = imputeMean(), numeric = imputeMean()),
+        dummy.classes = c("integer","numeric"), dummy.type = "numeric")
+    task <- imp$task
+    dummy <- names(getTaskData(task))[grepl("dummy", names(getTaskData(task)))]
+    task <- dropFeatures(task, dummy)
+    task <- normalizeFeatures(task,method = "standardize")
+    return(task)
+}
+
