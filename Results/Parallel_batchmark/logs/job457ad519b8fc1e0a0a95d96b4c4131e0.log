@@ -1,0 +1,10 @@
+### [bt 2017-07-11 05:57:11]: This is batchtools v0.9.3
+### [bt 2017-07-11 05:57:11]: Starting calculation of 1 jobs
+### [bt 2017-07-11 05:57:11]: Setting working directory to '/Users/Fabs/Dropbox/ProyectosDS/PNLP'
+### [bt 2017-07-11 05:57:11]: Memory measurement enabled
+### [bt 2017-07-11 05:57:11]: Starting job [batchtools job.id=16]
+Generating problem instance for problem 'df' ...
+Applying algorithm 'classif.earth' on problem 'df' ...
+
+### [bt 2017-07-11 05:57:32]: Job terminated successfully [batchtools job.id=16]
+### [bt 2017-07-11 05:57:32]: Calculation finished!

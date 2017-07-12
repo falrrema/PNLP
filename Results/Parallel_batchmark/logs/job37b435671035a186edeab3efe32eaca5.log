@@ -1,0 +1,19 @@
+### [bt 2017-07-11 05:58:08]: This is batchtools v0.9.3
+### [bt 2017-07-11 05:58:08]: Starting calculation of 1 jobs
+### [bt 2017-07-11 05:58:08]: Setting working directory to '/Users/Fabs/Dropbox/ProyectosDS/PNLP'
+### [bt 2017-07-11 05:58:08]: Memory measurement enabled
+### [bt 2017-07-11 05:58:08]: Starting job [batchtools job.id=36]
+Generating problem instance for problem 'df' ...
+Applying algorithm 'classif.multinom' on problem 'df' ...
+# weights:  28 (27 variable)
+initial  value 80707.285116 
+iter  10 value 62633.854494
+iter  20 value 62300.636852
+iter  30 value 59981.797502
+iter  40 value 59681.556071
+iter  50 value 59680.274401
+final  value 59680.272165 
+converged
+
+### [bt 2017-07-11 05:58:21]: Job terminated successfully [batchtools job.id=36]
+### [bt 2017-07-11 05:58:21]: Calculation finished!

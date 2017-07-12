@@ -1,0 +1,10 @@
+### [bt 2017-07-11 06:04:38]: This is batchtools v0.9.3
+### [bt 2017-07-11 06:04:38]: Starting calculation of 1 jobs
+### [bt 2017-07-11 06:04:38]: Setting working directory to '/Users/Fabs/Dropbox/ProyectosDS/PNLP'
+### [bt 2017-07-11 06:04:38]: Memory measurement enabled
+### [bt 2017-07-11 06:04:38]: Starting job [batchtools job.id=65]
+Generating problem instance for problem 'df' ...
+Applying algorithm 'classif.RRF' on problem 'df' ...
+
+### [bt 2017-07-11 06:25:42]: Job terminated successfully [batchtools job.id=65]
+### [bt 2017-07-11 06:25:43]: Calculation finished!

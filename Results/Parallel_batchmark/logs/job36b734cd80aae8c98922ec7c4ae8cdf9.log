@@ -1,0 +1,24 @@
+### [bt 2017-07-11 07:20:39]: This is batchtools v0.9.3
+### [bt 2017-07-11 07:20:39]: Starting calculation of 1 jobs
+### [bt 2017-07-11 07:20:39]: Setting working directory to '/Users/Fabs/Dropbox/ProyectosDS/PNLP'
+### [bt 2017-07-11 07:20:39]: Memory measurement enabled
+### [bt 2017-07-11 07:20:39]: Starting job [batchtools job.id=151]
+Generating problem instance for problem 'df' ...
+Applying algorithm 'classif.nnet' on problem 'df' ...
+# weights:  85
+initial  value 105768.986686 
+iter  10 value 60865.619492
+iter  20 value 58826.472042
+iter  30 value 58370.930916
+iter  40 value 57722.814910
+iter  50 value 56796.405865
+iter  60 value 56391.105859
+iter  70 value 56210.619180
+iter  80 value 55662.922033
+iter  90 value 55442.706164
+iter 100 value 55321.138758
+final  value 55321.138758 
+stopped after 100 iterations
+
+### [bt 2017-07-11 07:21:08]: Job terminated successfully [batchtools job.id=151]
+### [bt 2017-07-11 07:21:09]: Calculation finished!

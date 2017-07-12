@@ -13,12 +13,13 @@ if (!require("text2vec")) install.packages("text2vec"); library(text2vec)
 if (!require("magrittr")) install.packages("magrittr"); library(magrittr)
 if (!require("tidyr")) install.packages("tidyr"); library(tidyr)
 if (!require("ggplot2")) install.packages("ggplot2"); library(ggplot2)
+if (!require("dtplyr")) install.packages("dtplyr"); library(dtplyr)
+if (!require("topicmodels")) install.packages("topicmodels"); library(topicmodels)
 
 mlrDependencies <- function() {
   cat("Go for a coffee this could take a while...")
   devtools::install_github("mlr-org/mlr", dependencies = c("Depends", "Imports", "Suggests"))
 }
-
 
 # CleanText ---------------------------------------------------------------
 # "removeMostPunctuation" is the function that allows flexible punctuation removal. Those puntuation marks you want to preserve
@@ -321,7 +322,7 @@ getWordVectors<- function(vocab, it) {
   return(word_vectors)
 }
   
-getGloveFeature <- function(data, string1, string2, word_vectors = NULL, vocab = NULL, nCores = 0) {
+getGloveFeature <- function(data, string1, string2, word_vectors = NULL, vocab = NULL, nCores = detectCores()-1) {
     .string1 <- col_name(substitute(string1))
     .string2 <- col_name(substitute(string2))
     data <- data.table(data)
@@ -338,18 +339,21 @@ getGloveFeature <- function(data, string1, string2, word_vectors = NULL, vocab =
     # Get Vector Sum
     message("\n","Getting vector Sum feature")
 
-    it1 <- parPrep_proc(data[[.string1]], nCores = 0)
-    it2 <- parPrep_proc(data[[.string2]], nCores = 0, verbose = F)
+    it1 <- parPrep_proc(data[[.string1]], nCores = nCores)
+    it2 <- parPrep_proc(data[[.string2]], nCores = nCores, verbose = F)
     
-    n_cores <- detectCores() - nCores # Calculate the number of cores
+    n_cores <- nCores # Calculate the number of cores
     cat("Using", n_cores, "cores for matrix sumation", "\n")
     core_clusters <- makeCluster(n_cores) # Initiate cluster
-    clusterEvalQ(core_clusters, c("wv","it"))
+    clusterExport(core_clusters, varlist = c("word_vectors","it1"), envir = environment())
     
     sumMatrix1 <- pbapply::pbsapply(1:length(it1), function(t) {
       return(sum(abs(word_vectors[dimnames(word_vectors)[[1]] %in% it1[[t]][[1]], ,drop = FALSE])))
     }, cl = core_clusters)
+    stopCluster(core_clusters) # End cluster usage
     
+    core_clusters <- makeCluster(n_cores) # Initiate cluster
+    clusterExport(core_clusters, varlist = c("word_vectors","it2"), envir = environment())
     sumMatrix2 <- pbapply::pbsapply(1:length(it2), function(t) {
       return(sum(abs(word_vectors[dimnames(word_vectors)[[1]] %in% it2[[t]][[1]], ,drop = FALSE])))
     }, cl = core_clusters)
@@ -371,12 +375,12 @@ getGloveFeature <- function(data, string1, string2, word_vectors = NULL, vocab =
 }
     
 parPrep_proc <- function(vectorText, nCores = 0, verbose = T) {
-  n_cores <- detectCores() - nCores # Calculate the number of cores
+  n_cores <- nCores # Calculate the number of cores
   
   if (verbose == T)  cat("Using", n_cores, "cores for text preprocessing", "\n")
   
   core_clusters <- makeCluster(n_cores) # Initiate cluster
-  clusterExport(core_clusters, c("prep_fun", "cleanText", "word_tokenizer"))
+  clusterExport(core_clusters, c("prep_fun", "cleanText", "word_tokenizer"), envir = environment())
   clusterEvalQ(core_clusters, library(tm))
   
   vectorText <- pbapply::pblapply(vectorText, function(t) {
@@ -386,15 +390,10 @@ parPrep_proc <- function(vectorText, nCores = 0, verbose = T) {
   return(vectorText)
 }
 
-parSumMatrix <- function(wv, it, nCores = 0, verbose = T) {
-  
-  return(sumMatrix)
-}
-
 
 # Feature Selection -------------------------------------------------------
 
-fSelection <- function(data, cv = 10) {
+fSelection <- function(data, cv = 10, nCores = 4) {
     task <- taskingProcess(data) 
     resamp <- makeResampleDesc("CV", iters = cv, stratify = T)
     meas <- list(mlr::auc, logloss, brier)
@@ -402,10 +401,12 @@ fSelection <- function(data, cv = 10) {
     ctrlRandom <- makeFeatSelControlRandom(maxit = 20L)
     ctrlSeq <- makeFeatSelControlSequential(method = "sfs", alpha = 0.02)
     
-    parallelStartSocket(parallel::detectCores(), show.info = T)
-    cat("\n","Feature importance by Logictic Regression")
+    parallelStartMulticore(nCores, logging = T)
+    cat("\n","Feature importance by Logistic Regression")
     logFeatures <- selectFeatures(learner = "classif.logreg", task = task, resampling = resamp, control = ctrlSeq)
+    parallelStop()
     
+    parallelStartMulticore(nCores, logging = T)
     cat("\n", "Feature importance by Random Forrest")
     rfFeatures = selectFeatures(learner = "classif.randomForest", task = task, resampling = resamp, control = ctrlRandom)
     parallelStop()
@@ -415,7 +416,6 @@ fSelection <- function(data, cv = 10) {
 
 
 # Utilities ---------------------------------------------------------------
-
 col_name <- function (x, default = stop("Please supply column name", call. = FALSE)) {
     if (is.character(x))
         return(x)
@@ -450,3 +450,42 @@ taskingProcess <- function(df, target = "is_duplicate", pos = "1") {
     return(task)
 }
 
+
+# Topic Modelling ---------------------------------------------------------
+topicNumber <- function(docTermMatrix, interval = 1, maxTopics = 30, n_cores = detectCores() - 1) {
+    # Perform LDA topic modeling
+    burnin = 1000
+    iter = 1000
+    keep = 50
+    sequ <- seq(2, maxTopics, interval)
+    # Now we need to define a set of possible values of k. What this means is that we will run the LDA model once for each 
+    # value of k that we specify. Then in the next step we will find out which value of k maximises the harmonic mean of 
+    # the log-likelihood, and then we will settle on that as our final number of topics.
+    
+    if (n_cores == 0) {
+        core_clusters <- NULL
+    } else {
+        core_clusters <- makeCluster(n_cores, type = "FORK") # Initiate cluster
+        clusterExport(cl = core_clusters, varlist = c("sequ", "burnin", "iter", "keep", "maxTopics", "docTermMatrix", topicmodels::LDA), 
+            envir = environment())
+    }
+
+    fitted_many <- pbapply::pblapply(sequ, function(t) {
+        cat("Fitting a topic Model with k =", t, "from", maxTopics, "potential topics")
+        cat("\n")
+        LDA(docTermMatrix, k = t, method = "Gibbs",
+            control = list(burnin = burnin, iter = iter, keep = keep))
+    }, cl = core_clusters)
+    
+    # extract logliks from each topic
+    logLiks_many <- lapply(fitted_many, function(L) L@logLiks[-c(1:(burnin/keep))])
+    
+    # compute harmonic means
+    hm_many <- sapply(logLiks_many, function(h) harmonicMean(h))
+    
+    # The peak of the curve shows us which value of k maximises the harmonic mean of the log-likelihood
+    p <- plot_ly(x = sequ, y = hm_many, mode = "markers+lines")
+    print(p)
+    k <- sequ[which.max(hm_many)]
+    return(k)
+}

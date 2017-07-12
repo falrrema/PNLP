@@ -1,0 +1,41 @@
+### [bt 2017-07-11 07:25:15]: This is batchtools v0.9.3
+### [bt 2017-07-11 07:25:15]: Starting calculation of 1 jobs
+### [bt 2017-07-11 07:25:15]: Setting working directory to '/Users/Fabs/Dropbox/ProyectosDS/PNLP'
+### [bt 2017-07-11 07:25:15]: Memory measurement enabled
+### [bt 2017-07-11 07:25:15]: Starting job [batchtools job.id=166]
+Generating problem instance for problem 'df' ...
+Applying algorithm 'classif.gamboost' on problem 'df' ...
+Loading required package: mboost
+Loading required package: stabs
+
+Attaching package: ‘stabs’
+
+The following object is masked from ‘package:mlr’:
+
+    subsample
+
+This is mboost 2.8-0. See ‘package?mboost’ and ‘news(package  = "mboost")’
+for a complete list of changes.
+
+
+Attaching package: ‘mboost’
+
+The following object is masked from ‘package:ggplot2’:
+
+    %+%
+
+The following object is masked from ‘package:tidyr’:
+
+    extract
+
+The following object is masked from ‘package:magrittr’:
+
+    extract
+
+Warning in bsplines(mf[[i]], knots = args$knots[[i]]$knots, boundary.knots = args$knots[[i]]$boundary.knots,  :
+  Some ‘x’ values are beyond ‘boundary.knots’; Linear extrapolation used.
+Warning in bsplines(mf[[i]], knots = args$knots[[i]]$knots, boundary.knots = args$knots[[i]]$boundary.knots,  :
+  Some ‘x’ values are beyond ‘boundary.knots’; Linear extrapolation used.
+
+### [bt 2017-07-11 07:27:43]: Job terminated successfully [batchtools job.id=166]
+### [bt 2017-07-11 07:27:43]: Calculation finished!

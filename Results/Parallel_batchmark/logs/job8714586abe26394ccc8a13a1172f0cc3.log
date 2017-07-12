@@ -1,0 +1,10 @@
+### [bt 2017-07-11 06:43:01]: This is batchtools v0.9.3
+### [bt 2017-07-11 06:43:01]: Starting calculation of 1 jobs
+### [bt 2017-07-11 06:43:01]: Setting working directory to '/Users/Fabs/Dropbox/ProyectosDS/PNLP'
+### [bt 2017-07-11 06:43:01]: Memory measurement enabled
+### [bt 2017-07-11 06:43:01]: Starting job [batchtools job.id=106]
+Generating problem instance for problem 'df' ...
+Applying algorithm 'classif.xgboost' on problem 'df' ...
+
+### [bt 2017-07-11 06:43:05]: Job terminated successfully [batchtools job.id=106]
+### [bt 2017-07-11 06:43:05]: Calculation finished!

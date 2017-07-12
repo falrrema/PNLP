@@ -1,0 +1,11 @@
+### [bt 2017-07-11 06:43:09]: This is batchtools v0.9.3
+### [bt 2017-07-11 06:43:09]: Starting calculation of 1 jobs
+### [bt 2017-07-11 06:43:09]: Setting working directory to '/Users/Fabs/Dropbox/ProyectosDS/PNLP'
+### [bt 2017-07-11 06:43:09]: Memory measurement enabled
+### [bt 2017-07-11 06:43:09]: Starting job [batchtools job.id=113]
+Generating problem instance for problem 'df' ...
+Applying algorithm 'classif.binomial' on problem 'df' ...
+Warning: glm.fit: fitted probabilities numerically 0 or 1 occurred
+
+### [bt 2017-07-11 06:43:20]: Job terminated successfully [batchtools job.id=113]
+### [bt 2017-07-11 06:43:21]: Calculation finished!

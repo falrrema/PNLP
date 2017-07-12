@@ -1,0 +1,37 @@
+### [bt 2017-07-11 07:22:40]: This is batchtools v0.9.3
+### [bt 2017-07-11 07:22:40]: Starting calculation of 1 jobs
+### [bt 2017-07-11 07:22:40]: Setting working directory to '/Users/Fabs/Dropbox/ProyectosDS/PNLP'
+### [bt 2017-07-11 07:22:40]: Memory measurement enabled
+### [bt 2017-07-11 07:22:40]: Starting job [batchtools job.id=161]
+Generating problem instance for problem 'df' ...
+Applying algorithm 'classif.gamboost' on problem 'df' ...
+Loading required package: mboost
+Loading required package: stabs
+
+Attaching package: ‘stabs’
+
+The following object is masked from ‘package:mlr’:
+
+    subsample
+
+This is mboost 2.8-0. See ‘package?mboost’ and ‘news(package  = "mboost")’
+for a complete list of changes.
+
+
+Attaching package: ‘mboost’
+
+The following object is masked from ‘package:ggplot2’:
+
+    %+%
+
+The following object is masked from ‘package:tidyr’:
+
+    extract
+
+The following object is masked from ‘package:magrittr’:
+
+    extract
+
+
+### [bt 2017-07-11 07:25:08]: Job terminated successfully [batchtools job.id=161]
+### [bt 2017-07-11 07:25:09]: Calculation finished!

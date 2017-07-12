@@ -1,0 +1,10 @@
+### [bt 2017-07-11 06:25:27]: This is batchtools v0.9.3
+### [bt 2017-07-11 06:25:27]: Starting calculation of 1 jobs
+### [bt 2017-07-11 06:25:27]: Setting working directory to '/Users/Fabs/Dropbox/ProyectosDS/PNLP'
+### [bt 2017-07-11 06:25:27]: Memory measurement enabled
+### [bt 2017-07-11 06:25:27]: Starting job [batchtools job.id=72]
+Generating problem instance for problem 'df' ...
+Applying algorithm 'classif.kknn' on problem 'df' ...
+
+### [bt 2017-07-11 06:36:47]: Job terminated successfully [batchtools job.id=72]
+### [bt 2017-07-11 06:36:47]: Calculation finished!

@@ -1,7 +1,7 @@
 #################
 # Preprocessing
 #################
-setwd("~/Dropbox/PNLP")
+setwd("~/Dropbox/ProyectosDS/PNLP")
 Sys.setlocale(locale = "es_ES.UTF-8") # Para visualizar caracteres especiales
 
 library(text2vec)
@@ -10,11 +10,11 @@ library(dplyr)
 library(magrittr)
 source("keyFunctions.R")
 
-what <- "test"
+what <- "train"
 
 # Leyendo datos y transformando
 if (what == "train") {
-  df <- fread("data/train_features.csv")
+  df <- fread("data/train.csv")
 } else if (what == "test") {
   df <- fread("data/test_features.csv")
 }

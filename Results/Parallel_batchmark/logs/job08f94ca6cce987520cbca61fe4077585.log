@@ -1,0 +1,10 @@
+### [bt 2017-07-11 07:20:06]: This is batchtools v0.9.3
+### [bt 2017-07-11 07:20:06]: Starting calculation of 1 jobs
+### [bt 2017-07-11 07:20:06]: Setting working directory to '/Users/Fabs/Dropbox/ProyectosDS/PNLP'
+### [bt 2017-07-11 07:20:06]: Memory measurement enabled
+### [bt 2017-07-11 07:20:06]: Starting job [batchtools job.id=148]
+Generating problem instance for problem 'df' ...
+Applying algorithm 'classif.randomForest' on problem 'df' ...
+
+### [bt 2017-07-11 07:30:46]: Job terminated successfully [batchtools job.id=148]
+### [bt 2017-07-11 07:30:47]: Calculation finished!
