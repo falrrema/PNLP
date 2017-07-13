@@ -2,19 +2,21 @@
 # Modelling  
 #######################
 setwd("~/Dropbox/ProyectosDS/PNLP")
-options( java.parameters = "-Xmx16g") # for ML algorithms that use JAVA
+options(java.parameters = "-Xmx30g") # for ML algorithms that use JAVA
 source("keyFunctions.R")
 Sys.setlocale(locale="es_ES.UTF-8") # Para visualizar caracteres especiales
 options(scipen = 99999)
 library(mlr) # mlrDependencies()
 
-# Reading Data
+# Reading Data and preparing Tasks
 train <- fread("data/train_features.csv")
 val <- fread("data/val_features.csv")
 test <- fread("data/test_features.csv")
 test[, c("test_id","question1", "question2") := NULL]
+test$is_duplicate <- "1"
 traintask <- rbind(train, val) %>% select(is_duplicate:rwmdDist) %>% 
     taskingProcess
+testTask <- taskingProcess(test)
 
 # Basic Model -------------------------------------------------------------
 lrn <- makeLearner("classif.featureless", predict.type = "prob")
@@ -31,13 +33,14 @@ final_base <- setHyperPars(learner = lrn, par.vals = tp$x)
 
 # Train and predict
 modBase <- train(final_base, traintask)
-pred <- predict(modBase, newdata = test)
+pred <- predict(mod, task = testTask)
 
 submit <- data.table(test_id = test$test_id, is_duplicate = pred$data$prob.1)
 fwrite(submit, file = "Submit/baseModel.csv")
 
 # Extra Trees -------------------------------------------------------------
 lrn <- makeLearner("classif.extraTrees", predict.type = "prob")
+
 
 # Train and predict
 modET <- train(lrn, traintask)

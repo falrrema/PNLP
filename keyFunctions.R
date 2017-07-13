@@ -144,7 +144,7 @@ getSizeFeatures <- function(data, id, string1, string2, nCores = 0) {
     
     cat("Cleaning Stopwords", "\n")
     dt <- data %>% select_(.id, .string1, .string2) %>% 
-      tidyr::gather(preg, text, get(.string1), get(.string2))
+      tidyr::gather_(key_col = "preg", value_col= "text", gather_cols = c(.string1, .string2))
     n_cores <- detectCores() - nCores # Calculate the number of cores
     cat("Using", n_cores, "cores", "\n")
     core_clusters <- makeCluster(n_cores, type = "FORK") # Initiate cluster
