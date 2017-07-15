@@ -36,7 +36,7 @@ for (t in lrns) {
     smallSample <- rbind(smallSample, dfResult)
 }
 
-fwrite(smallSample, file = "Results/results-10%-models.csv")
+fwrite(smallSample, file = "Results/smallTraning__learners.csv")
 
 # Learning curve --------------------------------------------------------
 # Preparation
@@ -62,13 +62,12 @@ for (i in lrns) {
   # parallelStop()
   gc()
   learningCurve <- rbind(learningCurve, lc$data)
-  fwrite(learningCurve, file = "Results/LearningCurveMany.csv")
+  fwrite(learningCurve, file = "Results/LearningCurve_all.csv")
 }
-
 
 # Result analysis ---------------------------------------------------------
 library(plotly)
-learningCurve <- fread("Results/LearningCurveMany.csv")
+learningCurve <- fread("Results/LearningCurve_all.csv")
 
 # Filter out those learners that take more than 15 minutes aproximately with 40% of the data
 filterLearners <- learningCurve %>% 
@@ -100,7 +99,7 @@ learningCurve %>% filter(learner %in% filtertopAuc) %>% # by Brier
 learningCurve %>% filter(learner %in% filtertopAuc) %>% # by LogLoss
     plot_ly(x = ~percentage, y = ~brier, split = ~learner, type = "scatter", mode = "lines+markers")
 
-fwrite(learningCurve[learner %in% filtertopAuc], file = "Results/Selected_learners.csv")
+fwrite(learningCurve[learner %in% filtertopAuc], file = "Results/FirstFilter_Learners.csv")
 
 # Although SVM algorithms performed well on the data set it took them too long to be included.
 # However, classif.ksvm will be a submission on its own.

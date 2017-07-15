@@ -2,23 +2,22 @@
 # Key functions for PNLP
 ########################
 
-if (!require("tm")) install.packages("tm"); library(tm)
-if (!require("SnowballC")) install.packages("SnowballC"); library(SnowballC)
-if (!require("parallel")) install.packages("parallel"); library(parallel)
-if (!require("parallelMap")) install.packages("parallelMap"); library(parallelMap)
-if (!require("pbapply")) install.packages("pbapply"); library(pbapply)
-if (!require("dplyr")) install.packages("dplyr"); library(dplyr)
-if (!require("data.table")) install.packages("data.table"); library(data.table)
-if (!require("text2vec")) install.packages("text2vec"); library(text2vec)
-if (!require("magrittr")) install.packages("magrittr"); library(magrittr)
-if (!require("tidyr")) install.packages("tidyr"); library(tidyr)
-if (!require("ggplot2")) install.packages("ggplot2"); library(ggplot2)
-if (!require("dtplyr")) install.packages("dtplyr"); library(dtplyr)
-if (!require("topicmodels")) install.packages("topicmodels"); library(topicmodels)
+installThesePackages <- function() {
+    list.of.packages <- c("tm", "SnowballC", "parallelMap", "pbapply", "dplyr", "data.table", "text2vec", 
+                          "magrittr", "tidyr", "ggplot2", "dtplyr", "topicmodels", "tokenizers")
+    new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+    if(length(new.packages)) install.packages(new.packages)
+}
 
 mlrDependencies <- function() {
   cat("Go for a coffee this could take a while...")
   devtools::install_github("mlr-org/mlr", dependencies = c("Depends", "Imports", "Suggests"))
+}
+
+loadThesePackages <- function() {
+    lib <- list("tm", "SnowballC", "parallelMap", "pbapply", "dplyr", "data.table", "text2vec", 
+             "magrittr", "tidyr", "ggplot2", "dtplyr", "topicmodels", "tokenizers", "mlr")
+    p <- lapply(lib, require, character.only = TRUE)
 }
 
 # CleanText ---------------------------------------------------------------
